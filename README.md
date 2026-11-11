@@ -4,6 +4,7 @@ Portal com abas para acessar os dois estúdios publicados.
 
 - Movimento: https://maroni-motion-studio.maroni251096.chatgpt.site
 - Personagem/Rig: https://personagens-rig-3d.maroni251096.chatgpt.site
+- Riacho na Floresta: `riacho.html` — cena three.js em arquivo único (água com refração, profundidade, Fresnel, cáusticas, correnteza, espuma, simulação de ondulações e borboleta azul).
 
 **Limitação:** esta versão do GitHub ainda é um portal, não contém os modelos 3D originais. Incorporação via iframe pode ser bloqueada pelos sites de origem. O pacote completo com os arquivos dos dois editores está disponível separadamente na conversa.
 
