@@ -14,7 +14,8 @@
   #err{position:fixed;inset:0;display:none;align-items:center;justify-content:center;color:#eee;
     font:15px system-ui,sans-serif;padding:24px;text-align:center;background:rgba(10,20,14,.85);z-index:5}
 </style>
-<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script>window.THREE || document.write('<script src="https://unpkg.com/three@0.160.0/build/three.min.js"><\/script>');</script>
 </head>
 <body>
 <div id="vignette"></div>
@@ -30,7 +31,7 @@ window.addEventListener('error', ev => showError(ev.message || String(ev.error))
 </script>
 <script>
 (function () {
-if (!window.THREE) { showError('three.js não carregou (sem conexão com unpkg.com).'); return; }
+if (!window.THREE) { showError('three.js não carregou (verifique a conexão com a internet).'); return; }
 
 // Merge duplicate vertices so normals come out smooth
 function mergeVertices(g) {
