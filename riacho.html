@@ -12,23 +12,80 @@
   #hud{position:fixed;left:12px;bottom:10px;font:12px system-ui,sans-serif;color:#d8eadc;opacity:.65;
     text-shadow:0 1px 2px #000;pointer-events:none}
   #err{position:fixed;inset:0;display:none;align-items:center;justify-content:center;color:#eee;
-    font:15px system-ui,sans-serif;padding:24px;text-align:center}
+    font:15px system-ui,sans-serif;padding:24px;text-align:center;background:rgba(10,20,14,.85);z-index:5}
 </style>
-<script type="importmap">
-{ "imports": {
-  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-} }
-</script>
+<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
 </head>
 <body>
 <div id="vignette"></div>
-<div id="hud">Arraste para girar · role para aproximar</div>
+<div id="hud">Arraste para girar · pinça ou roda para aproximar</div>
 <div id="err"></div>
-<script type="module">
-import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+<script>
+function showError(msg) {
+  const e = document.getElementById('err');
+  e.style.display = 'flex';
+  e.textContent = 'Não foi possível iniciar a cena: ' + msg;
+}
+window.addEventListener('error', ev => showError(ev.message || String(ev.error)));
+</script>
+<script>
+(function () {
+if (!window.THREE) { showError('three.js não carregou (sem conexão com unpkg.com).'); return; }
+
+// Merge duplicate vertices so normals come out smooth
+function mergeVertices(g) {
+  const p = g.attributes.position, map = new Map(), pos = [], idx = [];
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    const k = Math.round(x * 1e4) + '_' + Math.round(y * 1e4) + '_' + Math.round(z * 1e4);
+    let j = map.get(k);
+    if (j === undefined) { j = pos.length / 3; map.set(k, j); pos.push(x, y, z); }
+    idx.push(j);
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  out.setIndex(idx);
+  return out;
+}
+
+// Small orbit camera: drag to rotate, wheel / pinch to zoom, with damping
+class OrbitControls {
+  constructor(camera, el) {
+    this.camera = camera; this.target = new THREE.Vector3();
+    this.minDistance = 1; this.maxDistance = 100; this.minPolarAngle = 0; this.maxPolarAngle = Math.PI;
+    this.enableDamping = true; this.dampingFactor = 0.06; this.enablePan = false;
+    this.sph = new THREE.Spherical(); this.dTheta = 0; this.dPhi = 0; this.scale = 1;
+    const pts = new Map(); let pinch = 0;
+    el.addEventListener('pointerdown', e => { el.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]); pinch = 0; });
+    el.addEventListener('pointermove', e => {
+      if (!pts.has(e.pointerId)) return;
+      const prev = pts.get(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]);
+      if (pts.size === 1) {
+        const h = el.clientHeight || 1;
+        this.dTheta -= 2 * Math.PI * (e.clientX - prev[0]) / h * 0.5;
+        this.dPhi -= 2 * Math.PI * (e.clientY - prev[1]) / h * 0.5;
+      } else if (pts.size === 2) {
+        const [a, b] = [...pts.values()];
+        const d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+        if (pinch) this.scale *= pinch / d;
+        pinch = d;
+      }
+    });
+    const up = e => { pts.delete(e.pointerId); pinch = 0; };
+    el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+    el.addEventListener('wheel', e => { e.preventDefault(); this.scale *= Math.pow(1.0015, e.deltaY); }, { passive: false });
+  }
+  sync() { this.sph.setFromVector3(this.camera.position.clone().sub(this.target)); this.dTheta = this.dPhi = 0; this.scale = 1; this.update(); }
+  update() {
+    const f = this.enableDamping ? this.dampingFactor : 1;
+    this.sph.theta += this.dTheta * f; this.sph.phi += this.dPhi * f;
+    this.sph.phi = Math.min(Math.max(this.sph.phi, this.minPolarAngle), this.maxPolarAngle);
+    this.sph.radius = Math.min(Math.max(this.sph.radius * Math.pow(this.scale, f), this.minDistance), this.maxDistance);
+    this.dTheta *= 1 - f; this.dPhi *= 1 - f; this.scale = Math.pow(this.scale, 1 - f);
+    this.camera.position.setFromSpherical(this.sph).add(this.target);
+    this.camera.lookAt(this.target);
+  }
+}
 
 THREE.ColorManagement.enabled = false;
 
@@ -156,7 +213,7 @@ function frameCamera() {
     controls.target.set(0, -0.5, 0.5);
   }
   camera.updateProjectionMatrix();
-  controls.update();
+  controls.sync();
 }
 frameCamera();
 
@@ -1166,6 +1223,7 @@ function frame() {
 }
 requestAnimationFrame(frame);
 window.__ready = true;
+})();
 </script>
 </body>
 </html>
